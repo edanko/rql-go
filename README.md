@@ -1,5 +1,6 @@
 # rql-go
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/edanko/rql-go/actions/workflows/ci.yml/badge.svg)](https://github.com/edanko/rql-go/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/edanko/rql-go.svg)](https://pkg.go.dev/github.com/edanko/rql-go)
 [![Go Report Card](https://goreportcard.com/badge/github.com/edanko/rql-go)](https://goreportcard.com/report/github.com/edanko/rql-go)
@@ -290,3 +291,7 @@ nothing to keep in sync by hand. Postgres majors and Go toolchain bumps are gate
 dashboard because both can change results and need a human to read the integration diff.
 
 Design decisions and the conformance table: [docs/DESIGN.md](docs/DESIGN.md).
+
+## License
+
+[MIT](LICENSE).
