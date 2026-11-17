@@ -26,10 +26,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # go.mod declares `go 1.27.0`. 1.27 is the declared minimum; the 1.26 row proves the
-        # module still resolves for users on an older local toolchain (GOTOOLCHAIN defaults
-        # to `auto`, so a 1.26 binary downloads the 1.27.x toolchain).
-        go: ["1.26", "1.27"]
+        # go.mod declares `go 1.27.0`, which is the minimum a consumer needs. Only the declared
+        # version is tested: actions/setup-go exports GOTOOLCHAIN=local, so an older row would
+        # fail on the go directive instead of exercising an auto-upgrade, and an auto-upgraded
+        # build is not a build with the older toolchain anyway.
+        go: ["1.27"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -55,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ["1.26", "1.27"]
+        go: ["1.27"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
