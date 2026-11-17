@@ -45,11 +45,11 @@
       "groupName": "postgres image"
     },
     {
-      "description": "Developer/CI tool pins in tools-versions.txt (installed with go install).",
-      "matchManagers": [
-        "custom.regex"
-      ],
-      "groupName": "dev tooling"
+      "description": "Developer/CI tool pins in tools-versions.txt (installed with go install). Scoped by file: matching custom.regex would also group the Postgres image.",
+      "groupName": "dev tooling",
+      "matchFileNames": [
+        "tools-versions.txt"
+      ]
     },
     {
       "description": "Postgres majors can change SQL behaviour, so they need a human to read the integration diff.",
