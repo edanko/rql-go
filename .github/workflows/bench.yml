@@ -1,0 +1,144 @@
+name: Benchmarks
+
+# Runs Go benchmarks on pull requests, diffs the PR head against the merge base with
+# benchstat, and keeps a single sticky comment up to date.
+#
+# This workflow is INFORMATIONAL: shared GitHub runners are noisy, so it must never block a
+# merge. The gating performance signal is the allocation budget job in ci.yml
+# (docs/DESIGN.md §6, docs/PERFORMANCE.md).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: bench-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Benchmark repetitions per side; benchstat needs several samples per benchmark.
+  BENCH_COUNT: "10"
+  # Keep the comment well under GitHub's 65536-character limit. Lines (not bytes) are
+  # truncated so multi-byte characters in benchstat output are never split.
+  MAX_REPORT_LINES: "1000"
+
+jobs:
+  benchstat:
+    name: benchstat comparison
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the merge base is measured from a detached worktree
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install benchstat (pinned)
+        run: |
+          version=$(awk '$1=="benchstat"{print $2}' tools-versions.txt)
+          go install "golang.org/x/perf/cmd/benchstat@${version}"
+
+      - name: Benchmark PR head
+        run: |
+          go test -run '^$' -bench . -benchmem -count="${BENCH_COUNT}" -p 1 ./... \
+            | tee /tmp/bench-pr.txt
+
+      # A failing baseline run (e.g. the base commit does not build with this toolchain)
+      # must not hide the PR's own numbers; the comment step reports the missing baseline.
+      - name: Benchmark merge base
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git worktree add --detach /tmp/bench-base "${BASE_SHA}"
+          ( cd /tmp/bench-base && go test -run '^$' -bench . -benchmem \
+              -count="${BENCH_COUNT}" -p 1 ./... > /tmp/bench-base.txt 2>&1 )
+
+      - name: Compare with benchstat
+        continue-on-error: true
+        run: |
+          if [ -s /tmp/bench-base.txt ]; then
+            benchstat /tmp/bench-base.txt /tmp/bench-pr.txt > /tmp/bench-diff.txt 2>&1 || true
+          fi
+
+      # The comment body is assembled here so the script step needs no filesystem access
+      # (actions/github-script v9 is ESM-only, so `require('fs')` is not reliable).
+      - name: Assemble benchstat comment body
+        id: report
+        run: |
+          if [ -s /tmp/bench-diff.txt ]; then
+            {
+              echo 'BENCH_REPORT<<BENCH_REPORT_EOF'
+              head -n "${MAX_REPORT_LINES}" /tmp/bench-diff.txt
+              echo
+              echo 'BENCH_REPORT_EOF'
+            } >> "$GITHUB_ENV"
+          else
+            {
+              echo 'BENCH_REPORT<<BENCH_REPORT_EOF'
+              echo 'No comparison was produced: the merge-base or PR-head benchmark run failed.'
+              echo 'See the workflow logs for the benchmark output.'
+              echo 'BENCH_REPORT_EOF'
+            } >> "$GITHUB_ENV"
+          fi
+
+      - name: Post sticky benchstat comment
+        # Fork PRs get a read-only token; a failed comment must not fail the workflow.
+        continue-on-error: true
+        uses: actions/github-script@v9
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const marker = '<!-- rql-go-benchstat -->';
+            const short = (sha) => (sha || '').slice(0, 7);
+            const report = process.env.BENCH_REPORT || '(no report collected)';
+
+            const body = [
+              marker,
+              '## Benchmark comparison (benchstat)',
+              '',
+              `Merge base \`${short(process.env.BASE_SHA)}\` (before) vs PR head ` +
+                `\`${short(process.env.HEAD_SHA)}\` (after), \`-count=${process.env.BENCH_COUNT}\`, ` +
+                'packages run serially.',
+              '',
+              '```',
+              report,
+              '```',
+              '',
+              '_Informational only: shared runners are noisy; treat small deltas as noise._',
+              '_The gating check is the `budget` job in CI (allocation ceilings); ' +
+                'see docs/PERFORMANCE.md._',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const previous = comments.find(
+              (comment) => comment.body && comment.body.startsWith(marker),
+            );
+            if (previous) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

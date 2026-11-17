@@ -1,0 +1,21 @@
+# Tool versions pinned for the rql-go release gate.
+#
+# Format: <tool> <version>   (whitespace separated, '#' starts a comment)
+#
+# These are consumed by:
+#   * `make tools`   — installs them with `go install ...@<version>` into $(go env GOPATH)/bin
+#   * .github/workflows/ci.yml and bench.yml — via awk, so CI and local runs stay in sync
+#
+# This file is the single source of truth: the workflows read the golangci-lint version from
+# here at run time, so there is nothing else to keep in sync. Renovate updates this file.
+#
+# Note: gosec/govulncheck MUST be built with the same Go minor as go.mod's `go` directive.
+# The prebuilt binaries on PATH may be older than the toolchain (they then fail with
+# "package requires newer Go version"), which is why we build them from source here.
+
+golangci-lint  v2.15.0
+gosec          v2.30.0
+govulncheck    v1.9.0
+benchstat      v0.0.0-20251023143056-3684bd442cc8
+# Dev-only: validates .github/workflows/*.yml locally and in review (`actionlint`).
+actionlint     v1.7.12

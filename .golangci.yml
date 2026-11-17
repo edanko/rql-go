@@ -1,0 +1,86 @@
+# golangci-lint configuration (v2 schema).
+#
+# `linters.default: none` + an explicit enable list keeps the gate deterministic across
+# golangci-lint releases: a newly added default linter cannot turn main red overnight.
+#
+# Policy: every package in the module (root engine, fuzz/) satisfies every linter.
+# There are deliberately NO exclusion rules: the frozen legacy root package they used to
+# exempt was replaced by the rewrite, so the whole tree is now held to the same standard.
+# If an exclusion ever becomes necessary, scope it to a single linter and file (or to an
+# exact message) and say why in a comment next to it — never a blanket `//nolint` or a
+# whole-linter disable. Rules, when needed, belong under `linters.exclusions.rules`, the v2
+# location of v1's `issues.exclude-rules`: the v1 key is not merely deprecated — `config
+# verify` refuses it and at runtime it is silently ignored, so a hand-migrated v1 config
+# would appear to exclude everything while excluding nothing.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # correctness / bugs
+    - errcheck
+    - govet
+    - staticcheck
+    - nilerr
+    - errorlint
+    - exhaustive
+    - bodyclose
+    - sqlclosecheck
+    - makezero
+    - copyloopvar
+    - usestdlibvars
+    - unconvert
+    # security
+    - gosec
+    # style / maintainability
+    - revive
+    - gocritic
+    - misspell
+    - unparam
+    # performance
+    - prealloc
+    # tests
+    - paralleltest
+    - thelper
+    - testifylint
+    # complexity budgets (dupl is intentionally NOT enabled: it duplicates gocognit/gocyclo
+    # signal and fires heavily on table-driven tests)
+    - gocognit
+    - gocyclo
+  settings:
+    exhaustive:
+      # Token/kind/operator tables legitimately enumerate the interesting cases and let a
+      # default branch handle the rest (token.go is written that way). A switch with a
+      # default is therefore considered exhaustive; a switch without one must still cover
+      # every case, which is where the linter earns its keep.
+      default-signifies-exhaustive: true
+    gocognit:
+      # Raise only with a written justification in the PR; the release budget is measured in
+      # allocations, not complexity, so this keeps builders and parsers honest.
+      min-complexity: 25
+    gocyclo:
+      # Tighter than the default (30): the lexer and parser are the hot switch-heavy paths,
+      # and 20 is comfortably met by the current code, so a new branchy function stands out.
+      min-complexity: 20
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+    unparam:
+      check-exported: false
+  exclusions:
+    generated: lax
+    # No exclusion rules. See the policy note at the top of this file.
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

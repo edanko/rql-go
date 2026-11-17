@@ -1,0 +1,145 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":separateMultipleMajorReleases"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "prConcurrentLimit": 5,
+  "rebaseWhen": "conflicted",
+  "minimumReleaseAge": "3 days",
+  "osvVulnerabilityAlerts": true,
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "packageRules": [
+    {
+      "description": "The library itself has no dependencies; the only Go module deps live in the integration-test module, so group and label them clearly.",
+      "matchFileNames": [
+        "test/integration/go.mod"
+      ],
+      "groupName": "integration test deps",
+      "addLabels": [
+        "integration-tests"
+      ]
+    },
+    {
+      "description": "GitHub Actions versions used by the workflows.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Postgres service container image pinned in ci.yml.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": "postgres image"
+    },
+    {
+      "description": "Developer/CI tool pins in tools-versions.txt (installed with go install).",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "groupName": "dev tooling"
+    },
+    {
+      "description": "Postgres majors can change SQL behaviour, so they need a human to read the integration diff.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "A Go minor bump changes the toolchain for every contributor; review deliberately.",
+      "matchDepTypes": [
+        "golang"
+      ],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "golangci-lint pin in tools-versions.txt",
+      "managerFilePatterns": [
+        "/^tools-versions\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)golangci-lint\\s+(?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "github.com/golangci/golangci-lint/v2"
+    },
+    {
+      "customType": "regex",
+      "description": "gosec pin in tools-versions.txt",
+      "managerFilePatterns": [
+        "/^tools-versions\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)gosec\\s+(?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "github.com/securego/gosec/v2"
+    },
+    {
+      "customType": "regex",
+      "description": "govulncheck pin in tools-versions.txt",
+      "managerFilePatterns": [
+        "/^tools-versions\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)govulncheck\\s+(?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "golang.org/x/vuln"
+    },
+    {
+      "customType": "regex",
+      "description": "benchstat pin in tools-versions.txt",
+      "managerFilePatterns": [
+        "/^tools-versions\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)benchstat\\s+(?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "golang.org/x/perf"
+    },
+    {
+      "customType": "regex",
+      "description": "actionlint pin in tools-versions.txt",
+      "managerFilePatterns": [
+        "/^tools-versions\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)actionlint\\s+(?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "go",
+      "depNameTemplate": "github.com/rhysd/actionlint"
+    },
+    {
+      "customType": "regex",
+      "description": "Postgres service container image in ci.yml (the github-actions manager only reads 'uses:' lines).",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\n)\\s+image:\\s+(?<depName>postgres):(?<currentValue>[0-9][^\\s]*)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
