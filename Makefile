@@ -128,12 +128,24 @@ clean: ## Remove local build artifacts (coverage profile, test cache)
 	rm -f '$(COVER_PROFILE)'
 	$(GO) clean -testcache
 
-integration: ## Run the Postgres integration suite (needs RQL_TEST_POSTGRES_DSN)
-	@if [ -z "$$RQL_TEST_POSTGRES_DSN" ]; then \
-		echo "integration: set RQL_TEST_POSTGRES_DSN, e.g."; \
-		echo "  RQL_TEST_POSTGRES_DSN='postgres://user:pass@127.0.0.1:5432/db?sslmode=disable'"; \
-		exit 1; \
-	fi
+integration: ## Run the Postgres suite against the released tag (needs RQL_TEST_POSTGRES_DSN)
+	$(check_dsn)
 	cd test/integration && $(GO) test -count=1 -race ./...
+
+integration-local: ## Run the Postgres suite against the working tree, not the released tag
+	$(check_dsn)
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+		cp test/integration/*.go test/integration/go.mod test/integration/go.sum "$$tmp"/ && \
+		cd "$$tmp" && \
+		$(GO) mod edit -replace github.com/edanko/rql-go=$(CURDIR) && \
+		$(GO) mod tidy && \
+		$(GO) test -count=1 -race ./...
+
+# check_dsn guards the targets that need a live database.
+check_dsn = @if [ -z "$$RQL_TEST_POSTGRES_DSN" ]; then \
+	echo "integration: set RQL_TEST_POSTGRES_DSN, e.g."; \
+	echo "  RQL_TEST_POSTGRES_DSN='postgres://user:pass@127.0.0.1:5432/db?sslmode=disable'"; \
+	exit 1; \
+fi
 
 check: fmt-check vet lint race sec ## Full local gate: fmt-check + vet + lint + test -race + sec

@@ -174,5 +174,9 @@ path slices. Measured with `benchstat` against `/tmp/bench-before.txt`; allocati
 
 Integration tests live in the nested module `test/integration`, so the library itself has **no
 dependencies at all** (empty `go.mod`) — only that module requires a PostgreSQL driver, and only tests
-that need a database pull it in. Run them with `make integration` (needs `RQL_TEST_POSTGRES_DSN`); they
+that need a database pull it in. The module requires the released tag instead of replacing it with
+`../..`, so it consumes the package exactly as an outside user would; CI runs it twice, once against
+the tag and once with a temporary `replace` onto the checkout, so a change is validated against a real
+database before it ships. Run them with `make integration` or `make integration-local`
+(needs `RQL_TEST_POSTGRES_DSN`); they
 skip cleanly when no DSN is set, so `go test ./...` stays usable everywhere.

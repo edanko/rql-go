@@ -277,8 +277,14 @@ make check         # fmt + vet + lint + race tests + security scan
 make bench         # benchmarks vs the recorded baseline
 make budget        # allocation budget gate
 make fuzz          # bounded fuzz run
-make integration   # Postgres integration suite (needs RQL_TEST_POSTGRES_DSN)
+make integration       # Postgres suite against the released tag (needs RQL_TEST_POSTGRES_DSN)
+make integration-local # same suite against the working tree
 ```
+
+The integration module requires the released tag rather than replacing it with `../..`, so the suite
+is a real consumer: it fetches what `go get` would give everyone and proves the published artifact
+works. `make integration-local` (and a second CI step) re-runs it with a temporary `replace` onto the
+checkout, so a pull request still validates its own SQL instead of the last release.
 
 The library has **no dependencies** (empty `go.mod`). Only the nested module `test/integration`
 requires a PostgreSQL driver, so consuming this package downloads nothing.

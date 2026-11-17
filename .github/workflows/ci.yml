@@ -192,6 +192,15 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Integration tests (nested module, real Postgres)
+      # The committed module requires the released tag, so the first run proves the published
+      # artifact works for a consumer. The second points the same suite at the checkout, so a
+      # pull request validates its own SQL rather than the last release.
+      - name: Integration tests against the released tag
         working-directory: test/integration
         run: go test -count=1 -race ./...
+      - name: Integration tests against the working tree
+        working-directory: test/integration
+        run: |
+          go mod edit -replace github.com/edanko/rql-go=../..
+          go mod tidy
+          go test -count=1 -race ./...
