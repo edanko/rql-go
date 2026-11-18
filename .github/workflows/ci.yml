@@ -21,24 +21,17 @@ env:
 
 jobs:
   build:
-    name: build + vet (go ${{ matrix.go }})
+    name: build + vet
+    # One toolchain, the one go.mod declares: actions/setup-go exports GOTOOLCHAIN=local, so a
+    # lower version would fail on the go directive rather than build with the older toolchain.
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # go.mod declares `go 1.27.0`, which is the minimum a consumer needs. Only the declared
-        # version is tested: actions/setup-go exports GOTOOLCHAIN=local, so an older row would
-        # fail on the go directive instead of exercising an auto-upgrade, and an auto-upgraded
-        # build is not a build with the older toolchain anyway.
-        go: ["1.27"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: ${{ matrix.go }}
-          check-latest: true
+          go-version-file: go.mod
           cache: true
       - name: Download modules
         run: go mod download
@@ -46,25 +39,20 @@ jobs:
         run: go build ./...
       - name: Vet
         run: go vet ./...
-      # Informational until the module owner tidies go.sum (it currently carries stale
-      - name: go.mod/go.sum tidy (blocking)
+      # The module has no dependencies, so its go.mod must stay empty and go.sum absent.
+      - name: go.mod/go.sum tidy
         run: go mod tidy -diff
 
   test:
-    name: test -race (go ${{ matrix.go }})
+    name: test -race
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        go: ["1.27"]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: ${{ matrix.go }}
-          check-latest: true
+          go-version-file: go.mod
           cache: true
       - name: Test with race detector, shuffled, coverage
         run: go test -race -shuffle=on -count=1 -covermode=atomic -coverprofile=coverage.txt ./...
@@ -73,7 +61,7 @@ jobs:
       - name: Upload coverage profile
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-go${{ matrix.go }}
+          name: coverage
           path: coverage.txt
           if-no-files-found: error
           retention-days: 7
@@ -162,11 +150,12 @@ jobs:
         run: go test -run '^$' -bench . -benchmem -count=3 -p 1 ./...
 
   integration:
-    name: integration (postgres, allowed to fail)
+    name: integration (postgres)
+    # Required, not allowed to fail: this suite is the only check that runs the generated SQL
+    # against a real server, so a red run means the SQL is wrong and must block the change. The
+    # cost is that a runner or Docker outage fails the job too; re-run it rather than weakening
+    # the gate, or a broken suite becomes background noise nobody reads.
     runs-on: ubuntu-latest
-    # Postgres-backed integration tests are allowed to fail so an unavailable service or a
-    # Docker-less runner never blocks the release train; failures still show as annotations.
-    continue-on-error: true
     services:
       postgres:
         image: postgres:18.3-alpine
