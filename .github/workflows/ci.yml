@@ -171,7 +171,8 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      POSTGRES_DSN: postgres://rql:rql@127.0.0.1:5432/rql_test?sslmode=disable
+      # The suite resolves RQL_TEST_POSTGRES_DSN first and falls back to POSTGRES_DSN and
+      # DATABASE_URL for convenience, so setting more than one here would be dead config.
       RQL_TEST_POSTGRES_DSN: postgres://rql:rql@127.0.0.1:5432/rql_test?sslmode=disable
     steps:
       - name: Checkout
